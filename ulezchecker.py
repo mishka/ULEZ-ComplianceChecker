@@ -4,7 +4,6 @@ from colorama import Fore, Style, init
 from fake_useragent import UserAgent
 
 
-# Initialize colorama
 init(autoreset=True)
 
 

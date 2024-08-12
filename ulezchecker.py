@@ -122,7 +122,7 @@ class VehicleComplianceChecker:
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python ulezcheck.py VEHICLE_LICENSE_NUMBER")
+        print("Usage: python ulezchecker.py VEHICLE_LICENSE_NUMBER")
         sys.exit(1)
 
     vehicle_registration_mark = sys.argv[1]

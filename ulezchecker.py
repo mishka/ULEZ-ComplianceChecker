@@ -23,7 +23,7 @@ class VehicleComplianceChecker:
             "Content-Type": "application/json",
             "Origin": "https://tfl.gov.uk",
             "Referer": "https://tfl.gov.uk/",
-            "User-Agent": self.user_agent.random,  # Use a random user agent from fake_useragent
+            "User-Agent": self.user_agent.random,
         }
 
         data = {"vrmLookupRequest": {"vRM": self.vrm, "country": "UK", "date": {}}}
@@ -42,7 +42,7 @@ class VehicleComplianceChecker:
         headers = {
             "Accept": "*/*",
             "Origin": "https://tfl.gov.uk",
-            "User-Agent": self.user_agent.random,  # Use a random user agent from fake_useragent
+            "User-Agent": self.user_agent.random,
         }
 
         try:
@@ -74,7 +74,7 @@ class VehicleComplianceChecker:
         if vehicle_info:
             details = vehicle_info.get('vrmLookupResponse', {}).get('vehicleDetails', {})
             formatted_info = (
-                f"{Fore.CYAN}Vehicle Information:{Style.RESET_ALL}\n"  # Yellow header
+                f"{Fore.CYAN}Vehicle Information:{Style.RESET_ALL}\n"
                 f"{Fore.WHITE}Vehicle Registration:{Style.RESET_ALL} {self.format_value(details.get('vRM', 'N/A'))}\n"
                 f"{Fore.WHITE}Make:{Style.RESET_ALL} {self.format_value(details.get('make', 'N/A'))}\n"
                 f"{Fore.WHITE}Model:{Style.RESET_ALL} {self.format_value(details.get('model', 'N/A'))}\n"
@@ -98,7 +98,7 @@ class VehicleComplianceChecker:
         """Format and display HGV compliance information."""
         if compliance_info:
             formatted_info = (
-                f"{Fore.CYAN}HGV Compliance Information:{Style.RESET_ALL}\n"  # Yellow header
+                f"{Fore.CYAN}HGV Compliance Information:{Style.RESET_ALL}\n"
                 f"{Fore.WHITE}Star Rating:{Style.RESET_ALL} {self.format_value(compliance_info.get('starRating'))}\n"
                 f"{Fore.WHITE}Is Exempt:{Style.RESET_ALL} {self.format_value(compliance_info.get('isExempt'))}\n"
                 f"{Fore.WHITE}LEZ 2020:{Style.RESET_ALL} {self.format_value(compliance_info.get('lez2020'))}\n"

@@ -7,7 +7,7 @@ This Python tool allows you to check if a vehicle meets ULEZ (Ultra Low Emission
 - Detailed output with summary for ULEZ compliance
 - Ability to handle command-line input for vehicle registration
 
-
+![Example Outputs](https://raw.githubusercontent.com/mishka/ULEZ-ComplianceChecker/main/example.png)
 
 ## Installation
 

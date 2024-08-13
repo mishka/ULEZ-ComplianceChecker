@@ -126,6 +126,9 @@ def main():
 
     vehicle_registration_mark = sys.argv[1]
 
+    if sys.argv[2]:
+        vehicle_registration_mark = f'{sys.argv[1]}{sys.argv[2]}'
+
     checker = VehicleComplianceChecker(vehicle_registration_mark)
 
     # Check HGV compliance

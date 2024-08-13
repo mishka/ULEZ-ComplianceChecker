@@ -131,7 +131,7 @@ def main():
     # Check HGV compliance
     hgv_compliance = checker.fetch_hgv_compliance()
     if not hgv_compliance:
-        print(f"{Fore.LIGHTRED_EX}Warning:{Style.RESET_ALL} The entered license plate is not valid.")
+        print(f"{Fore.LIGHTRED_EX}Warning:{Style.RESET_ALL} {Fore.WHITE}The entered license plate is not valid.{Style.RESET_ALL}")
         quit()
 
     # If the license plate is valid, check low emission zone compliance

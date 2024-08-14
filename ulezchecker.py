@@ -123,11 +123,12 @@ def main():
     if len(sys.argv) < 2:
         print("Usage: python ulezchecker.py VEHICLE_LICENSE_NUMBER")
         sys.exit(1)
-
-    vehicle_registration_mark = sys.argv[1]
-
-    if sys.argv[2]:
-        vehicle_registration_mark = f'{sys.argv[1]}{sys.argv[2]}'
+    
+    try:
+        if sys.argv[2]:
+            vehicle_registration_mark = f'{sys.argv[1]}{sys.argv[2]}'
+    except IndexError:
+        vehicle_registration_mark = sys.argv[1]
 
     checker = VehicleComplianceChecker(vehicle_registration_mark)
 

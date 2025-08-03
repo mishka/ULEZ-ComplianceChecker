@@ -3,147 +3,130 @@ import requests
 from colorama import Fore, Style, init
 from fake_useragent import UserAgent
 
-
 init(autoreset=True)
 
+COLOURS = {
+    'yes': Fore.LIGHTGREEN_EX,
+    'no': Fore.LIGHTRED_EX,
+    'none': Fore.LIGHTYELLOW_EX,
+    'label': Fore.WHITE,
+    'heading': Fore.CYAN,
+    'value': Fore.LIGHTMAGENTA_EX,
+    'warn': Fore.LIGHTRED_EX
+}
+
+def colour_text(text, colour):
+    return f'{COLOURS.get(colour, "")}{text}{Style.RESET_ALL}'
+
+def format_value(value, chargeability=False):
+    if value is None:
+        return colour_text('None', 'none')
+    if isinstance(value, bool) or (isinstance(value, int) and value in [0, 1]):
+        val = bool(value)
+        if chargeability:
+            return colour_text('Yes', 'no') if val else colour_text('No', 'yes')
+        return colour_text('Yes', 'yes') if val else colour_text('No', 'no')
+    return colour_text(str(value), 'value')
 
 class VehicleComplianceChecker:
+    VEHICLE_LOOKUP_URL = 'https://mobileapim.tfl.gov.uk/Prod/unirucCapitaFacade/VRMLookup'
+    HGV_COMPLIANCE_URL = 'https://api.tfl.gov.uk/Dvs2/api/hgv/{}'
+    user_agent = UserAgent()
+
     def __init__(self, vrm):
         self.vrm = vrm
-        self.VEHICLE_LOOKUP_URL = "https://mobileapim.tfl.gov.uk/Prod/unirucCapitaFacade/VRMLookup"
-        self.HGV_COMPLIANCE_URL = "https://api.tfl.gov.uk/Dvs2/api/hgv/{}"
-        self.user_agent = UserAgent()
-
 
     def fetch_vehicle_info(self):
-        """Fetch vehicle information from TFL API."""
         headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Origin": "https://tfl.gov.uk",
-            "Referer": "https://tfl.gov.uk/",
-            "User-Agent": self.user_agent.random,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Origin': 'https://tfl.gov.uk',
+            'Referer': 'https://tfl.gov.uk/',
+            'User-Agent': self.user_agent.random,
         }
-
-        data = {"vrmLookupRequest": {"vRM": self.vrm, "country": "UK", "date": {}}}
-
+        data = {'vrmLookupRequest': {'vRM': self.vrm, 'country': 'UK', 'date': {}}}
         try:
             response = requests.post(self.VEHICLE_LOOKUP_URL, headers=headers, json=data)
             response.raise_for_status()
             return response.json()
-        except requests.RequestException as e:
-            print(f"Error fetching vehicle information: {e}")
+        except requests.RequestException:
             return None
 
-
     def fetch_hgv_compliance(self):
-        """Fetch HGV compliance information from TFL API."""
         headers = {
-            "Accept": "*/*",
-            "Origin": "https://tfl.gov.uk",
-            "User-Agent": self.user_agent.random,
+            'Accept': '*/*',
+            'Origin': 'https://tfl.gov.uk',
+            'User-Agent': self.user_agent.random,
         }
-
         try:
             response = requests.get(self.HGV_COMPLIANCE_URL.format(self.vrm), headers=headers)
             response.raise_for_status()
             return response.json()
-        except requests.RequestException as e:
+        except requests.RequestException:
             return None
 
+    def display_vehicle_info(self, details):
+        info = [
+            colour_text('Vehicle Information:', 'heading'),
+            f"{colour_text('Registration:', 'label')} {format_value(details.get('vRM', 'N/A'))}",
+            f"{colour_text('Make:', 'label')} {format_value(details.get('make', 'N/A'))}",
+            f"{colour_text('Model:', 'label')} {format_value(details.get('model', 'N/A'))}",
+            f"{colour_text('Colour:', 'label')} {format_value(details.get('colour', 'N/A'))}",
+            f"{colour_text('Tax Code:', 'label')} {format_value(details.get('taxCode', 'N/A'))}",
+            f"{colour_text('Chargeability:', 'label')}",
+            f" - {colour_text('CC Chargeable:', 'label')} {format_value(details.get('chargeability', {}).get('isCcChargeable'), chargeability=True)}",
+            f" - {colour_text('LEZ Chargeable:', 'label')} {format_value(details.get('chargeability', {}).get('isLezChargeable'), chargeability=True)}",
+            f" - {colour_text('ULEZ Chargeable:', 'label')} {format_value(details.get('chargeability', {}).get('isUlezChargeable'), chargeability=True)}",
+            f" - {colour_text('ES Chargeable:', 'label')} {format_value(details.get('chargeability', {}).get('isEsChargeable'), chargeability=True)}",
+            f"{colour_text('In Auto Pay:', 'label')} {format_value(details.get('inAutoPay'))}",
+            f"{colour_text('ULEZ Exempt:', 'label')} {format_value(details.get('isULEZExempt'))}",
+            f"{colour_text('ULEZ Vehicle List Type:', 'label')} {format_value(details.get('uLEZVehicleListType', 'N/A'))}",
+            f"{colour_text('ULEZ Non-Chargeable:', 'label')} {format_value(details.get('isULEZNonChargeable'))}",
+            ""
+        ]
+        print('\n'.join(info))
 
-    def format_value(self, value, chargeability=False):
-        """Format the value with appropriate color and text."""
-        if value is None:
-            return f"{Fore.LIGHTYELLOW_EX}None{Style.RESET_ALL}"
-        elif isinstance(value, bool):
-            if chargeability:
-                return f"{Fore.LIGHTRED_EX if value else Fore.LIGHTGREEN_EX}{'Yes' if value else 'No'}{Style.RESET_ALL}"
-            return f"{Fore.LIGHTGREEN_EX if value else Fore.LIGHTRED_EX}{'Yes' if value else 'No'}{Style.RESET_ALL}"
-        elif isinstance(value, int) and value in [0, 1]:
-            if chargeability:
-                return f"{Fore.LIGHTRED_EX if value == 1 else Fore.LIGHTGREEN_EX}{'Yes' if value == 1 else 'No'}{Style.RESET_ALL}"
-            return f"{Fore.LIGHTGREEN_EX if value == 1 else Fore.LIGHTRED_EX}{'Yes' if value == 1 else 'No'}{Style.RESET_ALL}"
-        else:
-            return f"{Fore.LIGHTMAGENTA_EX}{value}{Style.RESET_ALL}"
-
-
-    def display_vehicle_info(self, vehicle_info):
-        """Format and display vehicle information."""
-        if vehicle_info:
-            details = vehicle_info.get('vrmLookupResponse', {}).get('vehicleDetails', {})
-            formatted_info = (
-                f"{Fore.CYAN}Vehicle Information:{Style.RESET_ALL}\n"
-                f"{Fore.WHITE}Vehicle Registration:{Style.RESET_ALL} {self.format_value(details.get('vRM', 'N/A'))}\n"
-                f"{Fore.WHITE}Make:{Style.RESET_ALL} {self.format_value(details.get('make', 'N/A'))}\n"
-                f"{Fore.WHITE}Model:{Style.RESET_ALL} {self.format_value(details.get('model', 'N/A'))}\n"
-                f"{Fore.WHITE}Color:{Style.RESET_ALL} {self.format_value(details.get('colour', 'N/A'))}\n"
-                f"{Fore.WHITE}Tax Code:{Style.RESET_ALL} {self.format_value(details.get('taxCode', 'N/A'))}\n"
-                f"{Fore.WHITE}Chargeability:{Style.RESET_ALL}\n"
-                f"{Fore.WHITE}  - CC Chargeable:{Style.RESET_ALL} {self.format_value(details.get('chargeability', {}).get('isCcChargeable'), chargeability=True)}\n"
-                f"{Fore.WHITE}  - LEZ Chargeable:{Style.RESET_ALL} {self.format_value(details.get('chargeability', {}).get('isLezChargeable'), chargeability=True)}\n"
-                f"{Fore.WHITE}  - ULEZ Chargeable:{Style.RESET_ALL} {self.format_value(details.get('chargeability', {}).get('isUlezChargeable'), chargeability=True)}\n"
-                f"{Fore.WHITE}  - ES Chargeable:{Style.RESET_ALL} {self.format_value(details.get('chargeability', {}).get('isEsChargeable'), chargeability=True)}\n"
-                f"{Fore.WHITE}In Auto Pay:{Style.RESET_ALL} {self.format_value(details.get('inAutoPay'))}\n"
-                f"{Fore.WHITE}ULEZ Exempt:{Style.RESET_ALL} {self.format_value(details.get('isULEZExempt'))}\n"
-                f"{Fore.WHITE}ULEZ Vehicle List Type:{Style.RESET_ALL} {self.format_value(details.get('uLEZVehicleListType', 'N/A'))}\n"
-                f"{Fore.WHITE}ULEZ Non-Chargeable:{Style.RESET_ALL} {self.format_value(details.get('isULEZNonChargeable'))}\n"
-            )
-            print(formatted_info)
-            return details
-
-
-    def display_hgv_compliance_info(self, compliance_info):
-        """Format and display HGV compliance information."""
-        if compliance_info:
-            formatted_info = (
-                f"{Fore.CYAN}HGV Compliance Information:{Style.RESET_ALL}\n"
-                f"{Fore.WHITE}Star Rating:{Style.RESET_ALL} {self.format_value(compliance_info.get('starRating'))}\n"
-                f"{Fore.WHITE}Is Exempt:{Style.RESET_ALL} {self.format_value(compliance_info.get('isExempt'))}\n"
-                f"{Fore.WHITE}LEZ 2020:{Style.RESET_ALL} {self.format_value(compliance_info.get('lez2020'))}\n"
-                f"{Fore.WHITE}Is Subject to DVS:{Style.RESET_ALL} {self.format_value(compliance_info.get('isSubjectToDvs'))}\n"
-                f"{Fore.WHITE}Is Evidence Required:{Style.RESET_ALL} {self.format_value(compliance_info.get('isEvidenceRequired'))}\n"
-                f"{Fore.WHITE}Euro Class Rating:{Style.RESET_ALL} {self.format_value(compliance_info.get('euroClassRating'))}\n"
-                f"{Fore.WHITE}Country Code:{Style.RESET_ALL} {self.format_value(compliance_info.get('countryCode', 'N/A'))}\n"
-                f"{Fore.WHITE}Vehicle Type:{Style.RESET_ALL} {self.format_value(compliance_info.get('vehicleType', 'N/A'))}\n"
-            )
-            print(formatted_info)
-
+    def display_hgv_compliance_info(self, compliance):
+        info = [
+            colour_text('HGV Compliance Information:', 'heading'),
+            f"{colour_text('Star Rating:', 'label')} {format_value(compliance.get('starRating'))}",
+            f"{colour_text('Is Exempt:', 'label')} {format_value(compliance.get('isExempt'))}",
+            f"{colour_text('LEZ 2020:', 'label')} {format_value(compliance.get('lez2020'))}",
+            f"{colour_text('Is Subject to DVS:', 'label')} {format_value(compliance.get('isSubjectToDvs'))}",
+            f"{colour_text('Is Evidence Required:', 'label')} {format_value(compliance.get('isEvidenceRequired'))}",
+            f"{colour_text('Euro Class Rating:', 'label')} {format_value(compliance.get('euroClassRating'))}",
+            f"{colour_text('Country Code:', 'label')} {format_value(compliance.get('countryCode', 'N/A'))}",
+            f"{colour_text('Vehicle Type:', 'label')} {format_value(compliance.get('vehicleType', 'N/A'))}",
+            ""
+        ]
+        print('\n'.join(info))
 
     def display_summary(self, details):
-        """Display a summary of whether the vehicle meets ULEZ standards."""
         is_ulez_chargeable = details.get('chargeability', {}).get('isUlezChargeable', False)
         if is_ulez_chargeable:
-            print(f"{Fore.LIGHTRED_EX}This vehicle does not meet the ULEZ emissions standards.{Style.RESET_ALL}")
+            print(colour_text('This vehicle does not meet the ULEZ emissions standards.', 'warn'))
         else:
-            print(f"{Fore.LIGHTGREEN_EX}This vehicle meets the ULEZ emissions standards.{Style.RESET_ALL}")
-
+            print(colour_text('This vehicle meets the ULEZ emissions standards.', 'yes'))
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python ulezchecker.py VEHICLE_LICENSE_NUMBER")
+        print('Usage: python ulezchecker.py VEHICLE_LICENSE_NUMBER')
         sys.exit(1)
-    
-    try:
-        if sys.argv[2]:
-            vehicle_registration_mark = f'{sys.argv[1]}{sys.argv[2]}'
-    except IndexError:
-        vehicle_registration_mark = sys.argv[1]
 
+    vehicle_registration_mark = sys.argv[1].strip().upper()
     checker = VehicleComplianceChecker(vehicle_registration_mark)
 
-    # Check HGV compliance
     hgv_compliance = checker.fetch_hgv_compliance()
     if not hgv_compliance:
-        print(f"{Fore.LIGHTRED_EX}Warning:{Style.RESET_ALL} {Fore.WHITE}The entered license plate is not valid.{Style.RESET_ALL}")
-        quit()
+        print(colour_text('Warning: The entered license plate is not valid.', 'warn'))
+        sys.exit(1)
 
-    # If the license plate is valid, check low emission zone compliance
     vehicle_info = checker.fetch_vehicle_info()
     if vehicle_info:
-        details = checker.display_vehicle_info(vehicle_info)
+        details = vehicle_info.get('vrmLookupResponse', {}).get('vehicleDetails', {})
+        checker.display_vehicle_info(details)
         checker.display_hgv_compliance_info(hgv_compliance)
         checker.display_summary(details)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

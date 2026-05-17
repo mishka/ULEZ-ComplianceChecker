@@ -1,126 +1,293 @@
 # ULEZ Compliance Checker
 
-This Python tool allows you to check if a vehicle meets ULEZ (Ultra Low Emission Zone) standards and HGV (Heavy Goods Vehicle) compliance. It fetches data from relevant APIs, formats the results with color-coded output for easy interpretation, and provides a summary of compliance status. Features include:
+A Python tool to check whether a UK vehicle meets ULEZ (Ultra Low Emission Zone), LEZ (Low Emission Zone), Congestion Charge, and HGV compliance standards. It scrapes live data from TfL and the national Clean Air Zone service.
 
-- Random user agents for each request
-- Dynamic color formatting using the `colorama` library
-- Detailed output with summary for ULEZ compliance
-- Ability to handle command-line input for vehicle registration
+Works as both a **CLI quick-check tool** and an **importable library** that returns structured JSON data for use in other programs.
 
 ![Example Outputs](https://raw.githubusercontent.com/mishka/ULEZ-ComplianceChecker/main/example.png)
 
+---
+
+## Features
+
+- Live TfL vehicle lookup via Playwright (headless browser)
+- HGV compliance via TfL API
+- National Clean Air Zone (CAZ) lookup across all UK cities
+- Cross-zone ULEZ deduction fallback when direct TfL scrape is unavailable
+- Colour-coded terminal output via `colorama`
+- Importable `check_vehicle()` function returning a fully structured dict
+
+---
+
 ## Installation
 
-To use this tool, you need to have Python installed. You can install the required dependencies via pip:
+Requires Python 3.8+. Install dependencies:
 
 ```bash
-pip install requests colorama fake_useragent
+pip install requests colorama beautifulsoup4 playwright
+playwright install chromium
 ```
 
-Then simply clone the repository and run it:
+Clone the repository:
+
 ```bash
 git clone https://github.com/mishka/ULEZ-ComplianceChecker
+cd ULEZ-ComplianceChecker
 ```
 
-## Usage
+---
 
-Run the script with the vehicle registration number as an argument:
+## CLI Usage
+
+Pass a UK vehicle registration as an argument:
+
 ```bash
-python ulezchecker.py VEHICLE_REGISTRATION
+python compliance_checker.py AB12CDE
 ```
 
-# Output Description
+The terminal will print a full colour-coded compliance report covering vehicle details, London zone chargeability, HGV status, and national CAZ results.
 
-This section provides a detailed description of each field in the output. Each field represents specific information about the vehicle's registration and compliance with emission-related charges.
+---
 
-### Vehicle Information
+## Library Usage
 
-- **Vehicle Registration**
-  - **Description:** A unique identifier assigned to the vehicle by the vehicle registration authority.
-  - **Example:** `X882SRM`
+Import `check_vehicle` and pass a registration. It returns a plain Python dict with all compliance data — no printing, no side effects.
 
-- **Make**
-  - **Description:** The manufacturer or brand of the vehicle.
-  - **Example:** `SUBARU`
+```python
+from compliance_checker import check_vehicle
 
-- **Model**
-  - **Description:** The specific model name or type of the vehicle produced by the manufacturer.
-  - **Example:** `IMPREZA P1`
+data = check_vehicle("AB12CDE")
 
-- **Color**
-  - **Description:** The color of the vehicle as registered.
-  - **Example:** `Blue`
+# Quick checks
+print(data["london"]["ulez_chargeable"])      # True / False / None
+print(data["vehicle"]["make"])                # e.g. "FORD"
+print(data["national_caz"]["Birmingham"])     # e.g. "No Charge"
+print(data["hgv"])                            # None if not an HGV
+print(data["errors"])                         # List of non-fatal fetch failures
+```
 
-- **Tax Code**
-  - **Description:** A code used for vehicle tax classification purposes, which may affect charges and exemptions.
-  - **Example:** `11`
+---
 
-### Chargeability
+## Return Value — JSON Schema
 
-- **CC Chargeable**
-  - **Description:** Indicates whether the vehicle is subject to the Congestion Charge (CC). This charge applies in certain urban areas with high traffic congestion.
-  - **Value:** `Yes` means the vehicle is chargeable; `No` means it is not.
+`check_vehicle(vrm)` always returns a dict with the following top-level keys. All keys are always present; values are `None` when data could not be retrieved.
 
-- **LEZ Chargeable**
-  - **Description:** Indicates whether the vehicle is subject to the Low Emission Zone (LEZ) charge. The LEZ aims to reduce emissions from older, more polluting vehicles.
-  - **Value:** `Yes` means the vehicle is chargeable; `No` means it is not.
+```json
+{
+  "vrm": "AB12CDE",
+  "vehicle": { ... },
+  "london": { ... },
+  "hgv": { ... },
+  "national_caz": { ... },
+  "ulez_cross_zone_deduction": null,
+  "errors": []
+}
+```
 
-- **ULEZ Chargeable**
-  - **Description:** Indicates whether the vehicle is subject to the Ultra Low Emission Zone (ULEZ) charge. The ULEZ targets high-polluting vehicles to reduce air pollution.
-  - **Value:** `Yes` means the vehicle is chargeable; `No` means it is not.
+### `vrm`
+`string` — The normalised registration mark used for all lookups (uppercase, stripped of whitespace).
 
-- **ES Chargeable**
-  - **Description:** Indicates whether the vehicle is subject to other emission-related charges (e.g., Environmental Zones). This may vary depending on local regulations.
-  - **Value:** `Yes` means the vehicle is chargeable; `No` means it is not.
+---
 
-### ULEZ Information
+### `vehicle`
+Basic vehicle identity information parsed from the TfL results page.
 
-- **In Auto Pay**
-  - **Description:** Indicates whether the vehicle is enrolled in an automatic payment scheme for ULEZ charges. If enrolled, the charge is automatically paid without requiring manual intervention.
-  - **Value:** `Yes` means it is enrolled; `No` means it is not.
+| Key | Type | Description |
+|---|---|---|
+| `make` | `string \| null` | Manufacturer, e.g. `"FORD"` |
+| `model` | `string \| null` | Model name, e.g. `"FOCUS"` |
+| `colour` | `string \| null` | Registered colour, e.g. `"Blue"` |
+| `tax_code` | `string \| null` | Vehicle tax classification code, e.g. `"11"` |
 
-- **ULEZ Exempt**
-  - **Description:** Indicates whether the vehicle is officially exempt from ULEZ charges. Exempt vehicles do not need to pay the ULEZ charge, even if they would otherwise be chargeable.
-  - **Value:** `Yes` means the vehicle is exempt; `No` means it is not.
+---
 
-- **ULEZ Vehicle List Type**
-  - **Description:** Categorizes the vehicle under a specific list type used for ULEZ compliance purposes. This classification helps determine the vehicle’s eligibility for exemption or charge.
-  - **Example Value:** `L` denotes the type of list the vehicle is categorized under.
+### `london`
+London-specific zone compliance and chargeability flags.
 
-- **ULEZ Non-Chargeable**
-  - **Description:** Confirms whether the vehicle is not subject to ULEZ charges. This field is a direct indication of the vehicle’s status regarding chargeability.
-  - **Value:** `Yes` means the vehicle is non-chargeable; `No` means it is chargeable.
+| Key | Type | Description |
+|---|---|---|
+| `ulez_chargeable` | `bool \| null` | `true` if the vehicle must pay the ULEZ daily charge |
+| `ulez_exempt` | `bool \| null` | `true` if the vehicle holds an official ULEZ exemption |
+| `ulez_non_chargeable` | `bool \| null` | `true` if the vehicle is confirmed not subject to ULEZ charges |
+| `ulez_vehicle_list_type` | `string \| null` | TfL vehicle list category, e.g. `"L"` |
+| `cc_chargeable` | `bool \| null` | `true` if subject to the Congestion Charge |
+| `lez_chargeable` | `bool \| null` | `true` if subject to the Low Emission Zone charge |
+| `es_chargeable` | `bool \| null` | `true` if subject to an Emission Surcharge |
+| `in_autopay` | `bool \| null` | `true` if the vehicle is enrolled in Auto Pay |
+| `zone_charges` | `object` | Detailed rate breakdown for CC and Tunnels (see below) |
 
-### HGV Compliance Information
+#### `london.zone_charges`
 
-- **Star Rating**
-  - **Description:** A rating system for heavy goods vehicles (HGVs) that indicates their safety and emissions performance. Not applicable to passenger vehicles.
-  - **Value:** `None` indicates no rating is available or applicable.
+| Key | Type | Description |
+|---|---|---|
+| `congestion_charge` | `object \| null` | Present when a CC entry is found on the results page |
+| `tunnel_charge` | `object \| null` | Present when a Blackwall/Silvertown Tunnel entry is found |
 
-- **Is Exempt**
-  - **Description:** Indicates whether the vehicle is exempt from heavy goods vehicle charges or regulations. This typically applies to compliance with specific HGV regulations.
-  - **Value:** `Yes` means it is exempt; `No` means it is not.
+Each zone charge object has:
 
-- **LEZ 2020**
-  - **Description:** Indicates whether the vehicle meets the Low Emission Zone standards set for 2020, applicable to HGVs. For a passenger vehicle, this field is not applicable.
-  - **Value:** `Yes` or `No` would indicate compliance or non-compliance.
+```json
+{
+  "title": "Congestion Charge",
+  "charge": "£18.00",
+  "hours": "07:00-18:00 Mon-Fri | 12:00-18:00 Sat-Sun",
+  "rates": {
+    "autopay": "£18.00",
+    "standard": "£18.00",
+    "late_payment": "£21.00"
+  }
+}
+```
 
-- **Is Subject to DVS**
-  - **Description:** Refers to whether the vehicle is subject to the Direct Vision Standard (DVS) requirements for HGVs. This standard measures how much a driver can see directly from the vehicle’s cab.
-  - **Value:** `Yes` means it is subject; `No` means it is not.
+```json
+{
+  "title": "Blackwall & Silvertown Tunnels Charge",
+  "charge": "£1.50",
+  "hours": "06:00-22:00 Daily (Peak: Wkday 06-10 North / 16-19 South)",
+  "rates": {
+    "autopay_off_peak": "£1.50",
+    "autopay_peak": "£4.00"
+  }
+}
+```
 
-- **Is Evidence Required**
-  - **Description:** Indicates if documentation or evidence is required to prove compliance with HGV regulations.
-  - **Value:** `Yes` means evidence is required; `No` means it is not.
+---
 
-- **Euro Class Rating**
-  - **Description:** Represents the Euro emission standard of the vehicle, which determines its environmental performance and compliance. Not applicable to passenger vehicles in this case.
-  - **Example Value:** `None` indicates no rating is available or applicable.
+### `hgv`
+`object | null` — `null` if the vehicle is not an HGV or the lookup fails. Otherwise:
 
-- **Country Code**
-  - **Description:** The country code where the vehicle is registered. This field helps identify the vehicle’s registration origin.
-  - **Example Value:** `GB` for Great Britain.
+| Key | Type | Description |
+|---|---|---|
+| `star_rating` | `int \| null` | DVS safety star rating (0–5) |
+| `is_exempt` | `bool \| null` | Whether the HGV is exempt from relevant charges |
+| `lez_2020` | `bool \| null` | Whether the vehicle meets LEZ 2020 standards |
+| `is_subject_to_dvs` | `bool \| null` | Whether the Direct Vision Standard applies |
+| `is_evidence_required` | `bool \| null` | Whether compliance evidence must be supplied |
+| `euro_class_rating` | `string \| null` | Euro emission class, e.g. `"Euro VI"` |
+| `country_code` | `string \| null` | Registration country, e.g. `"GB"` |
+| `vehicle_type` | `string \| null` | EU vehicle category, e.g. `"N3"` |
 
-- **Vehicle Type**
-  - **Description:** The classification of the vehicle according to European standards, which categorizes it based on its design and use.
-  - **Example Value:** `M1` denotes a passenger vehicle.
+---
+
+### `national_caz`
+`object | null` — `null` if the national CAZ lookup fails. Otherwise a dict keyed by city name, each value containing both a boolean flag and the raw charge string from the government service:
+
+| Key | Type | Description |
+|---|---|---|
+| `is_chargeable` | `bool` | `true` if the vehicle incurs a charge in this zone, `false` if exempt |
+| `charge` | `string` | The raw label returned by the CAZ service, e.g. `"No Charge"` or `"Charge applies"` |
+
+```json
+{
+  "Bath":       { "is_chargeable": false, "charge": "No Charge" },
+  "Birmingham": { "is_chargeable": true,  "charge": "Charge applies" },
+  "Bradford":   { "is_chargeable": false, "charge": "No Charge" },
+  "Bristol":    { "is_chargeable": true,  "charge": "Charge applies" },
+  "London (ULEZ)": { "is_chargeable": true, "charge": "Charge applies" },
+  "Newcastle":  { "is_chargeable": false, "charge": "No Charge" },
+  "Portsmouth": { "is_chargeable": false, "charge": "No Charge" },
+  "Sheffield":  { "is_chargeable": false, "charge": "No Charge" }
+}
+```
+
+Using the bool for logic and the string for display means you get the best of both:
+
+```python
+# Fast bool check
+if data["national_caz"]["Birmingham"]["is_chargeable"]:
+    print("Charge applies in Birmingham")
+
+# Human-readable label when needed
+print(data["national_caz"]["Birmingham"]["charge"])  # "Charge applies"
+```
+
+---
+
+### `ulez_cross_zone_deduction`
+`string | null` — Only populated when the primary TfL UI scrape fails and the tool falls back to inferring ULEZ compliance from national CAZ results. Possible values:
+
+| Value | Meaning |
+|---|---|
+| `"compliant"` | Vehicle shows no charge in Birmingham and Bristol Class D zones — inferred to meet ULEZ standards |
+| `"non_compliant"` | Vehicle incurs charges in Class D zones — inferred not to meet ULEZ standards |
+| `"insufficient_data"` | Not enough national data to draw a conclusion |
+| `null` | TfL scrape succeeded; no deduction was needed |
+
+---
+
+### `errors`
+`array of strings` — Non-fatal errors accumulated during the lookup. The function always returns a result even when some sources fail. Check this field to understand what data may be missing.
+
+Example:
+```json
+[
+  "HGV compliance lookup failed or vehicle is not an HGV.",
+  "National CAZ lookup failed."
+]
+```
+
+---
+
+## Full Example Response
+
+```python
+from compliance_checker import check_vehicle
+import json
+
+data = check_vehicle("X882SRM")
+print(json.dumps(data, indent=2))
+```
+
+```json
+{
+  "vrm": "X882SRM",
+  "vehicle": {
+    "make": "SUBARU",
+    "model": "IMPREZA P1",
+    "colour": "Blue",
+    "tax_code": "11"
+  },
+  "london": {
+    "ulez_chargeable": true,
+    "ulez_exempt": false,
+    "ulez_non_chargeable": false,
+    "ulez_vehicle_list_type": "N/A",
+    "cc_chargeable": false,
+    "lez_chargeable": false,
+    "es_chargeable": false,
+    "in_autopay": false,
+    "zone_charges": {
+      "congestion_charge": null,
+      "tunnel_charge": null
+    }
+  },
+  "hgv": null,
+  "national_caz": {
+    "Bath":          { "is_chargeable": false, "charge": "No Charge" },
+    "Birmingham":    { "is_chargeable": true,  "charge": "Charge applies" },
+    "Bradford":      { "is_chargeable": false, "charge": "No Charge" },
+    "Bristol":       { "is_chargeable": true,  "charge": "Charge applies" },
+    "London (ULEZ)": { "is_chargeable": true,  "charge": "Charge applies" },
+    "Newcastle":     { "is_chargeable": false, "charge": "No Charge" },
+    "Portsmouth":    { "is_chargeable": false, "charge": "No Charge" },
+    "Sheffield":     { "is_chargeable": false, "charge": "No Charge" }
+  },
+  "ulez_cross_zone_deduction": null,
+  "errors": [
+    "HGV compliance lookup failed or vehicle is not an HGV."
+  ]
+}
+```
+
+---
+
+## Output Field Reference (CLI)
+
+The CLI output mirrors the JSON structure above. For a full description of each printed field, refer to the key descriptions in the schema above.
+
+---
+
+## Notes
+
+- The TfL UI scrape uses Playwright with a headless Chromium browser. Keep `playwright install chromium` up to date if the scraper starts failing.
+- The national CAZ service (`drive-clean-air-zone.service.gov.uk`) is a UK government service; its availability is outside this project's control.
+- When `ulez_chargeable` is `null` and `ulez_cross_zone_deduction` is also `null`, both data sources were unavailable for this registration.

@@ -4,6 +4,7 @@ A Python tool to check whether a UK vehicle meets ULEZ (Ultra Low Emission Zone)
 
 Works as both a **CLI quick-check tool** and an **importable library** that returns structured JSON data for use in other programs.
 
+(Outdated screenshot from previous version but you should get the gist of it)
 ![Example Outputs](https://raw.githubusercontent.com/mishka/ULEZ-ComplianceChecker/main/example.png)
 
 ---

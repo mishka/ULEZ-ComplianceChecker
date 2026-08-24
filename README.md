@@ -52,7 +52,7 @@ The terminal will print a full colour-coded compliance report covering vehicle d
 
 ## Library Usage
 
-Import `check_vehicle` and pass a registration. It returns a plain Python dict with all compliance data — no printing, no side effects.
+Import `check_vehicle` and pass a registration. It returns a plain Python dict with all compliance data.
 
 ```python
 from compliance_checker import check_vehicle
